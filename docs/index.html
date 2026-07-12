@@ -1375,36 +1375,6 @@
     }
   }
 
-  function setupBrushEvents() {
-    const canvas = document.getElementById('remover-canvas');
-    const cursor = document.getElementById('brush-cursor');
-    const container = document.getElementById('preview-container');
-
-    const onStart = (e) => {
-      if (fileType !== 'image') return;
-      e.preventDefault();
-      pushUndo();
-      isPainting = true;
-      const pos = getCanvasPos(e);
-      paintAt(pos.x, pos.y);
-    };
-    const onMove = (e) => {
-      e.preventDefault();
-      // Move cursor
-      const rect = container.getBoundingClientRect();
-      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-      cursor.style.left = (clientX - rect.left) + 'px';
-      cursor.style.top  = (clientY - rect.top)  + 'px';
-      cursor.style.display = 'block';
-      cursor.style.width  = brushSize + 'px';
-      cursor.style.height = brushSize + 'px';
-
-      if (isPainting) {
-        const pos = getCanvasPos(e);
-        paintAt(pos.x, pos.y);
-      }
-    };
   let strokeBbox = null; // tracks the bounding box of the current stroke
 
   function setupBrushEvents() {
@@ -1440,7 +1410,6 @@
     };
     const onEnd = () => {
       if (isPainting && strokeBbox) {
-        // After finishing a stroke, clean up edges in the painted region
         refineEdgesInBbox(strokeBbox.x1, strokeBbox.y1, strokeBbox.x2, strokeBbox.y2);
         strokeBbox = null;
       }
@@ -1466,6 +1435,7 @@
 
   // Call setupBrushEvents once at script load
   setupBrushEvents();
+
 
   function initSelfieSegmentation() {
     if (selfieSegmentation) return Promise.resolve();
