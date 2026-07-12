@@ -786,6 +786,7 @@
   // ══════════════════════════════════════════
   let currentController = null;
   let fetchTimeout = null;
+  let hasResult = false;
 
   const urlInput      = document.getElementById('url-input');
   const fetchBtn      = document.getElementById('fetch-btn');
@@ -812,6 +813,7 @@
   function clearAll() {
     cancelFetch(); urlInput.value=''; clearBtn.classList.add('hidden');
     hideAll(); howToSection.classList.remove('hidden'); urlInput.focus();
+    hasResult = false;
   }
   function hideAll() {
     loadingSkel.classList.add('hidden'); errorState.classList.add('hidden'); resultCard.classList.add('hidden');
@@ -1029,6 +1031,7 @@
   // ══════════════════════════════════════════
   function renderResult(data, platform) {
     setLoadingState(false); hideAll(); howToSection.classList.add('hidden');
+    hasResult = true;
 
     const thumb = document.getElementById('result-thumb');
     thumb.src = data.cover||data.origin_cover||''; thumb.style.display='';
@@ -1111,29 +1114,36 @@
     const removerBtn = document.getElementById('tab-remover');
     const downloaderPlatforms = document.getElementById('downloader-platforms');
     const downloaderCard = document.getElementById('downloader-card');
-    const videoResultWrap = document.getElementById('video-result-wrap');
     const howToSection = document.getElementById('how-to-section');
     const removerSection = document.getElementById('remover-section');
+    const loadingSkel = document.getElementById('loading-skeleton');
+    const errorState = document.getElementById('error-state');
+    const resultCard = document.getElementById('result-card');
 
     if (tab === 'downloader') {
       downloaderBtn.className = "flex-1 pb-3 text-sm font-semibold text-center transition-all duration-200 border-b-2 border-pink-500 text-pink-500 tab-btn active";
       removerBtn.className = "flex-1 pb-3 text-sm font-semibold text-slate-400 hover:text-slate-200 text-center transition-all duration-200 border-b-2 border-transparent tab-btn";
-      
+
       downloaderPlatforms.classList.remove('hidden');
       downloaderCard.classList.remove('hidden');
-      if (document.getElementById('video-result').children.length > 0) {
-        videoResultWrap.classList.remove('hidden');
-      }
-      howToSection.classList.remove('hidden');
       removerSection.classList.add('hidden');
+
+      // Restore downloader result elements if there was a result
+      if (hasResult) {
+        resultCard.classList.remove('hidden');
+      } else {
+        howToSection.classList.remove('hidden');
+      }
     } else {
       removerBtn.className = "flex-1 pb-3 text-sm font-semibold text-center transition-all duration-200 border-b-2 border-pink-500 text-pink-500 tab-btn active";
       downloaderBtn.className = "flex-1 pb-3 text-sm font-semibold text-slate-400 hover:text-slate-200 text-center transition-all duration-200 border-b-2 border-transparent tab-btn";
-      
+
       downloaderPlatforms.classList.add('hidden');
       downloaderCard.classList.add('hidden');
-      videoResultWrap.classList.add('hidden');
       howToSection.classList.add('hidden');
+      loadingSkel.classList.add('hidden');
+      errorState.classList.add('hidden');
+      resultCard.classList.add('hidden');
       removerSection.classList.remove('hidden');
     }
   }
