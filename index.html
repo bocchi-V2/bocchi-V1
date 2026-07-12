@@ -1,0 +1,899 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Bocchi Downloader — Download TikTok, Instagram Reels videos without watermark. Free, fast, no install." />
+  <title>Bocchi Downloader</title>
+  <link rel="icon" type="image/png" href="bocchi-icon.png" />
+  <link rel="apple-touch-icon" href="bocchi-icon.png" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Noto+Sans+Thai:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter','Noto Sans Thai','sans-serif'] },
+          colors: {
+            brand: { 400:'#f9a8d4', 500:'#ec4899', 600:'#db2777' },
+            accent:{ 400:'#a78bfa', 500:'#8b5cf6', 600:'#7c3aed' },
+            dark:  { 900:'#0a0710', 800:'#130d1e', 750:'#1a1026', 700:'#231535', 600:'#3d2a5c', 500:'#5a3d80' },
+          },
+          animation: {
+            'pulse-glow':'pulseGlow 2.5s ease-in-out infinite',
+            'slide-up':  'slideUp 0.4s cubic-bezier(0.16,1,0.3,1)',
+            'fade-in':   'fadeIn 0.3s ease',
+            'shimmer':   'shimmer 1.5s infinite',
+            'bounce-dot':'bounceDot 1.2s infinite ease-in-out',
+            'float':     'float 3s ease-in-out infinite',
+            'lang-pop':  'langPop 0.2s ease',
+            'spin-ring': 'spin 1s linear infinite',
+          },
+          keyframes: {
+            pulseGlow: {
+              '0%,100%':{ boxShadow:'0 0 20px rgba(236,72,153,0.25)' },
+              '50%':    { boxShadow:'0 0 50px rgba(139,92,246,0.45), 0 0 90px rgba(236,72,153,0.2)' },
+            },
+            slideUp: { from:{opacity:'0',transform:'translateY(24px)'}, to:{opacity:'1',transform:'translateY(0)'} },
+            fadeIn:  { from:{opacity:'0'}, to:{opacity:'1'} },
+            shimmer: { '0%':{backgroundPosition:'-200% 0'}, '100%':{backgroundPosition:'200% 0'} },
+            bounceDot: {
+              '0%,80%,100%':{ transform:'scale(0)',opacity:'0.3' },
+              '40%':         { transform:'scale(1)',opacity:'1' },
+            },
+            float:   { '0%,100%':{transform:'translateY(0px)'}, '50%':{transform:'translateY(-8px)'} },
+            langPop: { from:{transform:'scale(0.85)',opacity:'0'}, to:{transform:'scale(1)',opacity:'1'} },
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    * { box-sizing:border-box; }
+    body {
+      font-family:'Inter','Noto Sans Thai',sans-serif; min-height:100vh;
+      background-color:#0a0710;
+      background-image:url('bocchi-bg.jpg');
+      background-size:cover; background-position:center top;
+      background-attachment:fixed; background-repeat:no-repeat;
+    }
+    body::before {
+      content:''; position:fixed; inset:0;
+      background:linear-gradient(to bottom,rgba(10,7,16,.82) 0%,rgba(10,7,16,.75) 40%,rgba(10,7,16,.88) 100%);
+      z-index:0; pointer-events:none;
+    }
+    .gradient-text {
+      background:linear-gradient(135deg,#f9a8d4 0%,#a78bfa 50%,#f472b6 100%);
+      -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
+    }
+    #url-input:focus { outline:none; box-shadow:0 0 0 2px rgba(236,72,153,.5),0 0 30px rgba(236,72,153,.15); }
+    .skeleton {
+      background:linear-gradient(90deg,#231535 25%,#3d2a5c 50%,#231535 75%);
+      background-size:200% 100%; animation:shimmer 1.5s infinite; border-radius:8px;
+    }
+    @keyframes progressPulse { 0%,100%{opacity:1} 50%{opacity:.6} }
+    .progress-bar-inner {
+      background:linear-gradient(90deg,#ec4899,#8b5cf6,#ec4899);
+      background-size:200% 100%;
+      animation:shimmer 1.5s infinite, progressPulse 2s ease-in-out infinite;
+    }
+    .glass-card {
+      background:rgba(13,8,22,.72);
+      backdrop-filter:blur(18px); -webkit-backdrop-filter:blur(18px);
+      border:1px solid rgba(249,168,212,.1);
+    }
+    .dot { display:inline-block;width:8px;height:8px;border-radius:50%;background:#f9a8d4; }
+    .dot:nth-child(1){animation:bounceDot 1.2s infinite ease-in-out 0s}
+    .dot:nth-child(2){animation:bounceDot 1.2s infinite ease-in-out .2s}
+    .dot:nth-child(3){animation:bounceDot 1.2s infinite ease-in-out .4s}
+    .btn-primary {
+      background:linear-gradient(135deg,#db2777,#7c3aed);
+      transition:all .25s ease; position:relative; overflow:hidden;
+    }
+    .btn-primary::after { content:''; position:absolute; inset:0; background:linear-gradient(135deg,#ec4899,#8b5cf6); opacity:0; transition:opacity .25s ease; }
+    .btn-primary:hover::after{opacity:1}
+    .btn-primary span{position:relative;z-index:1}
+    .btn-download { background:linear-gradient(135deg,#059669,#0ea5e9); transition:all .2s ease; }
+    .btn-download:hover { background:linear-gradient(135deg,#10b981,#38bdf8); transform:translateY(-1px); box-shadow:0 4px 20px rgba(5,150,105,.4); }
+    .btn-download:active{transform:translateY(0)}
+
+    /* ── Language toggle ── */
+    .lang-btn {
+      position:relative; display:flex; align-items:center; gap:6px;
+      padding:6px 14px; border-radius:999px; font-size:12px; font-weight:600;
+      cursor:pointer; transition:all .2s ease; user-select:none;
+      border:1.5px solid rgba(249,168,212,.2); background:rgba(35,21,53,.6); color:#f9a8d4;
+    }
+    .lang-btn:hover { background:rgba(60,35,90,.7); border-color:rgba(249,168,212,.4); }
+    .lang-flag { font-size:16px; line-height:1; }
+    .lang-indicator { position:absolute; bottom:-3px; left:50%; transform:translateX(-50%); width:20px; height:3px; border-radius:999px; background:linear-gradient(135deg,#ec4899,#8b5cf6); }
+
+    /* ── Platform badges ── */
+    .platform-tiktok    { background:rgba(1,1,1,.5);    border-color:rgba(255,0,79,.3); }
+    .platform-instagram { background:rgba(38,38,38,.5); border-color:rgba(225,48,108,.3); }
+    .platform-youtube   { background:rgba(26,26,26,.5); border-color:rgba(255,0,0,.3); }
+    .platform-facebook  { background:rgba(17,24,39,.5); border-color:rgba(24,119,242,.3); }
+    .platform-twitter   { background:rgba(17,24,39,.5); border-color:rgba(29,155,240,.3); }
+    .platform-icon{font-size:16px;line-height:1}
+
+    /* ── Thumbnail enhancement ── */
+    #result-thumb {
+      filter: contrast(1.05) saturate(1.1) brightness(1.02);
+      image-rendering: high-quality;
+    }
+
+    /* ══════════════════════════════════════════
+       DOWNLOAD PROGRESS OVERLAY
+    ══════════════════════════════════════════ */
+    #dl-overlay {
+      position:fixed; inset:0; z-index:9998;
+      background:rgba(10,7,16,.85);
+      backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px);
+      display:flex; align-items:center; justify-content:center;
+      animation:fadeIn .25s ease;
+    }
+    #dl-overlay.hidden { display:none; }
+
+    .dl-card {
+      background:rgba(19,13,30,.9);
+      border:1px solid rgba(249,168,212,.15);
+      border-radius:24px; padding:36px 40px;
+      width:min(420px,90vw); text-align:center;
+      box-shadow:0 0 60px rgba(236,72,153,.15);
+    }
+
+    /* Circular progress ring */
+    .ring-wrap { position:relative; width:120px; height:120px; margin:0 auto 20px; }
+    .ring-bg { fill:none; stroke:#231535; stroke-width:8; }
+    .ring-fill {
+      fill:none; stroke-width:8; stroke-linecap:round;
+      stroke:url(#ringGrad);
+      transform:rotate(-90deg); transform-origin:50% 50%;
+      transition:stroke-dashoffset .35s ease;
+    }
+    .ring-pct {
+      position:absolute; inset:0; display:flex; flex-direction:column;
+      align-items:center; justify-content:center;
+    }
+    .ring-pct-num { font-size:26px; font-weight:900; color:#f9a8d4; line-height:1; }
+    .ring-pct-label { font-size:10px; color:#7c6b93; margin-top:2px; font-weight:500; }
+
+    /* Indeterminate spinner (no Content-Length) */
+    .ring-spinner { fill:none; stroke-width:8; stroke-linecap:round; stroke:url(#ringGrad); animation:spin 1s linear infinite; transform-origin:50% 50%; stroke-dasharray:60 120; }
+
+    .dl-filename { font-size:13px; color:#a78bfa; font-weight:600; margin-bottom:6px; word-break:break-all; }
+    .dl-stats { font-size:12px; color:#5a4d6e; margin-bottom:20px; }
+    .dl-stats span { color:#8b7a9e; font-weight:500; }
+
+    /* Speed badge */
+    .dl-speed-badge {
+      display:inline-flex; align-items:center; gap:4px;
+      background:rgba(139,92,246,.15); border:1px solid rgba(139,92,246,.3);
+      border-radius:999px; padding:3px 10px; font-size:11px; font-weight:600; color:#a78bfa;
+      margin-bottom:20px;
+    }
+
+    .dl-bar-wrap { width:100%; height:6px; background:#231535; border-radius:999px; overflow:hidden; margin-bottom:20px; }
+    .dl-bar-fill {
+      height:100%; border-radius:999px;
+      background:linear-gradient(90deg,#db2777,#8b5cf6);
+      transition:width .35s ease;
+    }
+
+    .btn-cancel-dl {
+      padding:8px 24px; border-radius:12px; font-size:13px; font-weight:600;
+      background:rgba(239,68,68,.15); border:1px solid rgba(239,68,68,.3);
+      color:#f87171; cursor:pointer; transition:all .2s ease;
+    }
+    .btn-cancel-dl:hover { background:rgba(239,68,68,.25); }
+
+    /* Toast */
+    #toast-container { position:fixed;bottom:24px;right:24px;z-index:9999;display:flex;flex-direction:column;gap:10px; }
+    .toast { padding:12px 20px; border-radius:12px; font-size:14px; font-weight:500; backdrop-filter:blur(16px); border:1px solid rgba(255,255,255,.08); animation:slideUp .3s cubic-bezier(0.16,1,0.3,1); max-width:320px; }
+    .toast-success{background:rgba(5,150,105,.9);color:#d1fae5}
+    .toast-error  {background:rgba(239,68,68,.9); color:#fee2e2}
+    .toast-info   {background:rgba(139,92,246,.9);color:#ede9fe}
+    .toast-warn   {background:rgba(245,158,11,.9);color:#fef3c7}
+
+    .result-card{animation:slideUp .4s cubic-bezier(0.16,1,0.3,1)}
+    #bocchi-mascot{animation:float 3s ease-in-out infinite}
+
+    ::-webkit-scrollbar{width:6px}
+    ::-webkit-scrollbar-track{background:#130d1e}
+    ::-webkit-scrollbar-thumb{background:#3d2a5c;border-radius:3px}
+    ::-webkit-scrollbar-thumb:hover{background:#5a3d80}
+  </style>
+</head>
+
+<body class="text-slate-100 relative overflow-x-hidden">
+
+  <!-- ═══════════════════════════════════════════
+       DOWNLOAD PROGRESS OVERLAY
+  ═══════════════════════════════════════════ -->
+  <div id="dl-overlay" class="hidden">
+    <div class="dl-card">
+      <svg style="position:absolute;width:0;height:0">
+        <defs>
+          <linearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stop-color="#ec4899"/>
+            <stop offset="100%" stop-color="#8b5cf6"/>
+          </linearGradient>
+        </defs>
+      </svg>
+
+      <!-- Circular Ring -->
+      <div class="ring-wrap">
+        <!-- Determinate ring (shown when Content-Length known) -->
+        <svg id="dl-ring-svg" width="120" height="120" viewBox="0 0 120 120" style="transform:rotate(-90deg)">
+          <circle class="ring-bg" cx="60" cy="60" r="52"/>
+          <circle id="dl-ring-fill" class="ring-fill" cx="60" cy="60" r="52"
+            stroke-dasharray="326.7" stroke-dashoffset="326.7"/>
+        </svg>
+        <!-- Indeterminate spinner (shown when no Content-Length) -->
+        <svg id="dl-spinner-svg" class="hidden" width="120" height="120" viewBox="0 0 120 120" style="position:absolute;top:0;left:0">
+          <circle class="ring-spinner" cx="60" cy="60" r="52" stroke-dasharray="80 246"/>
+        </svg>
+
+        <div class="ring-pct">
+          <span id="dl-pct-num" class="ring-pct-num">0</span>
+          <span class="ring-pct-label">%</span>
+        </div>
+      </div>
+
+      <!-- File info -->
+      <div id="dl-filename" class="dl-filename">Preparing download...</div>
+
+      <!-- Speed badge -->
+      <div class="dl-speed-badge">
+        <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/>
+        </svg>
+        <span id="dl-speed">— MB/s</span>
+      </div>
+
+      <!-- Stats -->
+      <div id="dl-stats" class="dl-stats">
+        <span id="dl-received">0 MB</span>
+        <span style="color:#3d2a5c"> / </span>
+        <span id="dl-total">— MB</span>
+      </div>
+
+      <!-- Linear bar -->
+      <div class="dl-bar-wrap">
+        <div id="dl-bar" class="dl-bar-fill" style="width:0%"></div>
+      </div>
+
+      <div id="dl-status-text" class="text-xs text-slate-500 mb-4">กำลังดาวน์โหลด...</div>
+
+      <button class="btn-cancel-dl" onclick="cancelDownload()" id="dl-cancel-btn">
+        ✕ <span data-i18n="btnCancel">ยกเลิก</span>
+      </button>
+    </div>
+  </div>
+
+  <div id="toast-container"></div>
+
+  <!-- ─────────── HEADER ─────────── -->
+  <header class="relative z-10 border-b border-pink-500/10 backdrop-blur-sm bg-black/20">
+    <div class="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <img id="bocchi-mascot" src="bocchi-icon.png" alt="Bocchi"
+          class="w-9 h-9 rounded-full object-cover border-2 border-pink-400/50 shadow-lg shadow-pink-500/20"
+          onerror="this.style.display='none';document.getElementById('logo-fallback').style.display='flex';" />
+        <div id="logo-fallback" class="w-9 h-9 rounded-xl btn-primary items-center justify-center shadow-lg hidden">
+          <svg class="w-5 h-5 text-white relative z-10" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
+          </svg>
+        </div>
+        <div>
+          <span class="font-black text-base tracking-tight gradient-text">Bocchi Downloader</span>
+          <p class="text-slate-500 text-[10px] leading-none mt-0.5" data-i18n="tagline">ไม่มีลายน้ำ · ฟรี · รวดเร็ว</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-3">
+        <div class="flex items-center gap-2 text-slate-400 text-xs">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse inline-block"></span>
+          <span data-i18n="serverOnline">เซิร์ฟเวอร์ออนไลน์</span>
+        </div>
+        <button id="lang-toggle" class="lang-btn" onclick="toggleLang()" title="Switch language / เปลี่ยนภาษา">
+          <span class="lang-flag" id="lang-flag">🇹🇭</span>
+          <span id="lang-label">TH</span>
+          <span class="lang-indicator"></span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ─────────── MAIN ─────────── -->
+  <main class="relative z-10 max-w-4xl mx-auto px-4 py-10">
+
+    <!-- Hero -->
+    <div class="text-center mb-8">
+      <h1 class="text-4xl sm:text-5xl font-black mb-3 leading-tight">
+        <span class="gradient-text" data-i18n="heroTitle">ดาวน์โหลดวิดีโอ</span><br />
+        <span class="text-slate-100" data-i18n="heroSub">ไม่มีลายน้ำ — ฟรีทันที!</span>
+      </h1>
+      <p class="text-slate-400 text-sm sm:text-base max-w-xl mx-auto" data-i18n="heroDesc">
+        วางลิงก์จาก TikTok, Instagram Reels, YouTube Shorts และอื่นๆ — ดาวน์โหลดได้ทันที ไม่ต้องติดตั้งแอปใดๆ
+      </p>
+    </div>
+
+    <!-- Platforms -->
+    <div class="flex flex-wrap justify-center gap-2 mb-8">
+      <span class="platform-tiktok flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-medium text-slate-300"><span class="platform-icon">🎵</span> TikTok</span>
+      <span class="platform-instagram flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-medium text-slate-300"><span class="platform-icon">📸</span> Instagram</span>
+      <span class="platform-youtube flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-medium text-slate-300"><span class="platform-icon">▶️</span> YouTube Shorts</span>
+      <span class="platform-facebook flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-medium text-slate-300"><span class="platform-icon">📘</span> Facebook</span>
+      <span class="platform-twitter flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-medium text-slate-300"><span class="platform-icon">🐦</span> X / Twitter</span>
+    </div>
+
+    <!-- Input Card -->
+    <div class="glass-card rounded-2xl p-6 mb-5 animate-pulse-glow">
+      <label for="url-input" class="block text-sm font-semibold text-pink-300 mb-3" data-i18n="inputLabel">📎 วางลิงก์วิดีโอที่นี่</label>
+      <div class="flex gap-3 flex-col sm:flex-row">
+        <div class="relative flex-1">
+          <input id="url-input" type="url" placeholder="https://www.tiktok.com/@user/video/..."
+            autocomplete="off" spellcheck="false"
+            class="w-full bg-dark-800/80 border border-pink-500/15 rounded-xl px-4 py-3.5 text-slate-100 placeholder-slate-600 text-sm transition-all duration-200 pr-10" />
+          <button id="clear-btn" onclick="clearAll()"
+            class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-pink-300 transition-colors hidden">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        <button id="fetch-btn" onclick="fetchVideo()"
+          class="btn-primary rounded-xl px-6 py-3.5 font-semibold text-white text-sm whitespace-nowrap shadow-lg">
+          <span id="fetch-btn-text" data-i18n="btnFetch">🔍 ดึงข้อมูลวิดีโอ</span>
+        </button>
+      </div>
+      <div id="progress-wrap" class="mt-4 hidden">
+        <div class="flex items-center justify-between text-xs text-slate-400 mb-1.5">
+          <span id="progress-label" data-i18n="progressConnect">กำลังเชื่อมต่อ API...</span>
+          <button onclick="cancelFetch()" class="text-red-400 hover:text-red-300 transition-colors font-medium" data-i18n="btnCancel">ยกเลิก</button>
+        </div>
+        <div class="w-full h-1.5 bg-dark-700/80 rounded-full overflow-hidden">
+          <div class="progress-bar-inner h-full rounded-full" style="width:100%"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Skeleton -->
+    <div id="loading-skeleton" class="hidden glass-card rounded-2xl p-6 mb-5">
+      <div class="flex gap-4">
+        <div class="skeleton w-28 h-44 flex-shrink-0 rounded-xl"></div>
+        <div class="flex-1 space-y-3 pt-1">
+          <div class="skeleton h-4 w-3/4 rounded"></div>
+          <div class="skeleton h-4 w-1/2 rounded"></div>
+          <div class="skeleton h-3 w-2/3 rounded mt-2"></div>
+          <div class="skeleton h-3 w-1/3 rounded"></div>
+          <div class="flex gap-2 mt-4">
+            <div class="skeleton h-10 w-32 rounded-xl"></div>
+            <div class="skeleton h-10 w-32 rounded-xl"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Error -->
+    <div id="error-state" class="hidden glass-card rounded-2xl p-6 mb-5 border border-red-500/20">
+      <div class="flex items-start gap-4">
+        <div class="w-10 h-10 rounded-full bg-red-500/15 flex items-center justify-center flex-shrink-0 mt-0.5">
+          <svg class="w-5 h-5 text-red-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+          </svg>
+        </div>
+        <div>
+          <p class="font-semibold text-red-400 mb-1" data-i18n="errorTitle">เกิดข้อผิดพลาด</p>
+          <p id="error-msg" class="text-slate-400 text-sm leading-relaxed"></p>
+          <button onclick="clearAll()" class="mt-3 text-xs text-pink-400 hover:text-pink-300 font-medium transition-colors" data-i18n="btnRetry">← ลองใหม่อีกครั้ง</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Result Card -->
+    <div id="result-card" class="hidden glass-card rounded-2xl p-6 mb-5 result-card">
+      <div class="flex items-center justify-between mb-5">
+        <div class="flex items-center gap-2">
+          <div class="w-2 h-2 rounded-full bg-emerald-400"></div>
+          <span class="text-sm font-semibold text-emerald-400" data-i18n="fetchSuccess">ดึงข้อมูลสำเร็จ!</span>
+          <!-- HD badge -->
+          <span class="inline-flex items-center gap-1 bg-violet-500/20 border border-violet-500/30 rounded-full px-2 py-0.5 text-xs font-bold text-violet-300">
+            ✨ HD
+          </span>
+        </div>
+        <button onclick="clearAll()" class="text-slate-500 hover:text-slate-300 transition-colors flex items-center gap-1 text-xs">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+          </svg>
+          <span data-i18n="btnClearSearch">เคลียร์ / ค้นหาใหม่</span>
+        </button>
+      </div>
+
+      <div class="flex gap-4 flex-col sm:flex-row">
+        <div class="relative flex-shrink-0">
+          <img id="result-thumb" src="" alt="thumbnail"
+            class="w-full sm:w-28 h-44 object-cover rounded-xl bg-dark-700 shadow-lg" loading="lazy" />
+          <div id="result-duration" class="absolute bottom-2 right-2 bg-black/70 text-white text-xs px-1.5 py-0.5 rounded font-medium hidden"></div>
+        </div>
+        <div class="flex-1 min-w-0">
+          <p id="result-title" class="text-slate-100 font-semibold text-sm leading-snug mb-2 line-clamp-3"></p>
+          <div class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500 mb-4">
+            <span class="flex items-center gap-1">
+              <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/></svg>
+              <span id="result-author-name">—</span>
+            </span>
+            <span id="result-plays" class="flex items-center gap-1 hidden">
+              <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+              <span id="result-plays-count">—</span>
+            </span>
+            <span id="result-likes" class="flex items-center gap-1 hidden">
+              <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+              <span id="result-likes-count">—</span>
+            </span>
+          </div>
+          <div id="download-buttons" class="flex flex-wrap gap-2"></div>
+        </div>
+      </div>
+
+      <div id="audio-section" class="hidden mt-4 pt-4 border-t border-white/5">
+        <p class="text-xs text-slate-500 font-medium mb-2 uppercase tracking-wider" data-i18n="audioLabel">🎵 เสียง / เพลง</p>
+        <div id="audio-buttons" class="flex flex-wrap gap-2"></div>
+      </div>
+    </div>
+
+    <!-- How To -->
+    <div id="how-to-section" class="glass-card rounded-2xl p-6 mb-5">
+      <h2 class="text-sm font-bold text-pink-300/80 uppercase tracking-wider mb-4" data-i18n="howToTitle">วิธีใช้งาน</h2>
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div class="flex gap-3 items-start">
+          <div class="w-8 h-8 rounded-lg bg-pink-500/20 text-pink-400 flex items-center justify-center text-sm font-bold flex-shrink-0">1</div>
+          <div>
+            <p class="text-sm font-medium text-slate-200" data-i18n="step1Title">คัดลอกลิงก์</p>
+            <p class="text-xs text-slate-500 mt-0.5" data-i18n="step1Desc">เปิดวิดีโอในแอปแล้วแตะ Share → Copy Link</p>
+          </div>
+        </div>
+        <div class="flex gap-3 items-start">
+          <div class="w-8 h-8 rounded-lg bg-accent-500/20 text-accent-400 flex items-center justify-center text-sm font-bold flex-shrink-0">2</div>
+          <div>
+            <p class="text-sm font-medium text-slate-200" data-i18n="step2Title">วางลิงก์</p>
+            <p class="text-xs text-slate-500 mt-0.5" data-i18n="step2Desc">วางในช่องด้านบนแล้วกด "ดึงข้อมูลวิดีโอ"</p>
+          </div>
+        </div>
+        <div class="flex gap-3 items-start">
+          <div class="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-sm font-bold flex-shrink-0">3</div>
+          <div>
+            <p class="text-sm font-medium text-slate-200" data-i18n="step3Title">ดาวน์โหลด</p>
+            <p class="text-xs text-slate-500 mt-0.5" data-i18n="step3Desc">เลือกคุณภาพแล้วกดดาวน์โหลดได้เลย!</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <p class="text-center text-xs text-slate-600" data-i18n="footerNote">
+      ⚡ ขับเคลื่อนโดย TikWM API · ไม่เก็บข้อมูลส่วนตัว · ใช้เพื่อการศึกษาเท่านั้น
+    </p>
+  </main>
+
+  <!-- ══════════════════════════════════════════
+       JAVASCRIPT
+  ══════════════════════════════════════════ -->
+  <script>
+  // ══════════════════════════════════════════
+  //  i18n
+  // ══════════════════════════════════════════
+  const translations = {
+    th: {
+      tagline:'ไม่มีลายน้ำ · ฟรี · รวดเร็ว', serverOnline:'เซิร์ฟเวอร์ออนไลน์',
+      heroTitle:'ดาวน์โหลดวิดีโอ', heroSub:'ไม่มีลายน้ำ — ฟรีทันที!',
+      heroDesc:'วางลิงก์จาก TikTok, Instagram Reels, YouTube Shorts และอื่นๆ — ดาวน์โหลดได้ทันที ไม่ต้องติดตั้งแอปใดๆ',
+      inputLabel:'📎 วางลิงก์วิดีโอที่นี่', btnFetch:'🔍 ดึงข้อมูลวิดีโอ',
+      btnCancel:'ยกเลิก', progressConnect:'กำลังเชื่อมต่อ API...',
+      progressProcess:'กำลังประมวลผล... รอสักครู่', progressDirect:'เชื่อมต่อ TikWM API โดยตรง...',
+      progressProxy1:'ใช้ CORS Proxy (allorigins)...', progressProxy2:'ใช้ CORS Proxy สำรอง...',
+      progressDone:'สำเร็จ! กำลังแสดงผล...', errorTitle:'เกิดข้อผิดพลาด',
+      btnRetry:'← ลองใหม่อีกครั้ง', fetchSuccess:'ดึงข้อมูลสำเร็จ!',
+      btnClearSearch:'เคลียร์ / ค้นหาใหม่', audioLabel:'🎵 เสียง / เพลง',
+      howToTitle:'วิธีใช้งาน', step1Title:'คัดลอกลิงก์',
+      step1Desc:'เปิดวิดีโอในแอปแล้วแตะ Share → Copy Link',
+      step2Title:'วางลิงก์', step2Desc:'วางในช่องด้านบนแล้วกด "ดึงข้อมูลวิดีโอ"',
+      step3Title:'ดาวน์โหลด', step3Desc:'เลือกคุณภาพแล้วกดดาวน์โหลดได้เลย!',
+      footerNote:'⚡ ขับเคลื่อนโดย TikWM API · ไม่เก็บข้อมูลส่วนตัว · ใช้เพื่อการศึกษาเท่านั้น',
+      toastCancelled:'ยกเลิกการดึงข้อมูลแล้ว', toastSuccess:'ดึงข้อมูลสำเร็จ! 🎉',
+      toastPaste:'กรุณาวางลิงก์วิดีโอก่อนนะ 😊', toastBadUrl:'ลิงก์ไม่ถูกต้อง กรุณาลองใหม่',
+      toastDlDone:'ดาวน์โหลดเสร็จแล้ว! ✅', toastDlFail:'ดาวน์โหลดตรงไม่ได้ เปิดในแท็บใหม่แทน',
+      toastDlCancel:'ยกเลิกการดาวน์โหลดแล้ว',
+      errNetwork:'ไม่สามารถเชื่อมต่อ API ได้ ตรวจสอบอินเทอร์เน็ตหรือลองใหม่ภายหลัง',
+      errAllFailed:'API ทุกตัวล้มเหลว กรุณาลองใหม่อีกครั้งในภายหลัง',
+      videoFrom:'วิดีโอจาก', views:'วิว', likes:'ถูกใจ',
+      dlHD:'⬇ HD ไม่มีลายน้ำ', dlNormal:'⬇ ปกติ ไม่มีลายน้ำ',
+      dlWM:'⬇ มีลายน้ำ', dlImage:'🖼 ภาพ', dlAudio:'เสียงต้นฉบับ',
+      dlDownloading:'กำลังดาวน์โหลด...', dlPrepare:'กำลังเตรียมไฟล์...',
+      dlDone:'ดาวน์โหลดเสร็จแล้ว!',
+    },
+    en: {
+      tagline:'No Watermark · Free · Fast', serverOnline:'Server Online',
+      heroTitle:'Download Videos', heroSub:'Without Watermark — Free!',
+      heroDesc:'Paste a link from TikTok, Instagram Reels, YouTube Shorts & more — download instantly, no app required.',
+      inputLabel:'📎 Paste video link here', btnFetch:'🔍 Fetch Video',
+      btnCancel:'Cancel', progressConnect:'Connecting to API...',
+      progressProcess:'Processing... please wait', progressDirect:'Connecting to TikWM API directly...',
+      progressProxy1:'Using CORS proxy (allorigins)...', progressProxy2:'Using backup CORS proxy...',
+      progressDone:'Done! Rendering...', errorTitle:'Error',
+      btnRetry:'← Try again', fetchSuccess:'Fetched successfully!',
+      btnClearSearch:'Clear / Search again', audioLabel:'🎵 Audio / Music',
+      howToTitle:'How to use', step1Title:'Copy the link',
+      step1Desc:'Open the video in app → Share → Copy Link',
+      step2Title:'Paste the link', step2Desc:'Paste above and click "Fetch Video"',
+      step3Title:'Download', step3Desc:'Choose quality and hit download!',
+      footerNote:'⚡ Powered by TikWM API · No data stored · For personal use only',
+      toastCancelled:'Request cancelled', toastSuccess:'Video info fetched! 🎉',
+      toastPaste:'Please paste a video link first 😊', toastBadUrl:'Invalid URL. Please try again.',
+      toastDlDone:'Download complete! ✅', toastDlFail:'Direct download failed, opened in new tab',
+      toastDlCancel:'Download cancelled',
+      errNetwork:'Cannot connect to API. Check your internet or try again later.',
+      errAllFailed:'All API attempts failed. Please try again later.',
+      videoFrom:'Video from', views:'views', likes:'likes',
+      dlHD:'⬇ HD No Watermark', dlNormal:'⬇ Normal No Watermark',
+      dlWM:'⬇ With Watermark', dlImage:'🖼 Image', dlAudio:'Original Audio',
+      dlDownloading:'Downloading...', dlPrepare:'Preparing file...',
+      dlDone:'Download complete!',
+    }
+  };
+
+  let currentLang = localStorage.getItem('bocchi-lang') || 'th';
+  function t(k){ return translations[currentLang][k] || k; }
+
+  function applyTranslations() {
+    document.querySelectorAll('[data-i18n]').forEach(el => {
+      const k = el.getAttribute('data-i18n');
+      if(k==='heroDesc') el.innerHTML = translations[currentLang][k];
+      else el.textContent = translations[currentLang][k] || el.textContent;
+    });
+    document.documentElement.lang = currentLang;
+    if (!document.getElementById('fetch-btn').disabled)
+      document.getElementById('fetch-btn-text').textContent = t('btnFetch');
+  }
+
+  function toggleLang() {
+    currentLang = currentLang==='th' ? 'en' : 'th';
+    localStorage.setItem('bocchi-lang', currentLang);
+    updateLangToggleUI(); applyTranslations();
+  }
+  function updateLangToggleUI() {
+    document.getElementById('lang-flag').textContent  = currentLang==='th' ? '🇹🇭' : '🇬🇧';
+    document.getElementById('lang-label').textContent = currentLang==='th' ? 'TH' : 'EN';
+    const btn = document.getElementById('lang-toggle');
+    btn.style.animation='none';
+    requestAnimationFrame(()=>{ btn.style.animation='langPop 0.2s ease'; });
+  }
+  updateLangToggleUI(); applyTranslations();
+
+  // ══════════════════════════════════════════
+  //  Fetch state
+  // ══════════════════════════════════════════
+  let currentController = null;
+  let fetchTimeout = null;
+
+  const urlInput      = document.getElementById('url-input');
+  const fetchBtn      = document.getElementById('fetch-btn');
+  const fetchBtnText  = document.getElementById('fetch-btn-text');
+  const clearBtn      = document.getElementById('clear-btn');
+  const progressWrap  = document.getElementById('progress-wrap');
+  const progressLabel = document.getElementById('progress-label');
+  const loadingSkel   = document.getElementById('loading-skeleton');
+  const errorState    = document.getElementById('error-state');
+  const errorMsg      = document.getElementById('error-msg');
+  const resultCard    = document.getElementById('result-card');
+  const howToSection  = document.getElementById('how-to-section');
+
+  urlInput.addEventListener('input', ()=>{ clearBtn.classList.toggle('hidden', urlInput.value.trim()===''); });
+  urlInput.addEventListener('keydown', e=>{ if(e.key==='Enter') fetchVideo(); });
+  urlInput.addEventListener('paste', ()=>{ setTimeout(()=>{ if(urlInput.value.trim().startsWith('http')) fetchVideo(); },80); });
+
+  function cancelFetch() {
+    if(currentController){ currentController.abort(); currentController=null; }
+    if(fetchTimeout){ clearTimeout(fetchTimeout); fetchTimeout=null; }
+    setLoadingState(false);
+    showToast(t('toastCancelled'),'info');
+  }
+  function clearAll() {
+    cancelFetch(); urlInput.value=''; clearBtn.classList.add('hidden');
+    hideAll(); howToSection.classList.remove('hidden'); urlInput.focus();
+  }
+  function hideAll() {
+    loadingSkel.classList.add('hidden'); errorState.classList.add('hidden'); resultCard.classList.add('hidden');
+  }
+  function setLoadingState(loading) {
+    fetchBtn.disabled=loading; urlInput.disabled=loading;
+    if(loading){
+      fetchBtnText.innerHTML=`<span class="flex items-center gap-2"><span class="dot"></span><span class="dot"></span><span class="dot"></span></span>`;
+      progressWrap.classList.remove('hidden'); loadingSkel.classList.remove('hidden');
+      howToSection.classList.add('hidden'); errorState.classList.add('hidden'); resultCard.classList.add('hidden');
+    } else {
+      fetchBtnText.textContent=t('btnFetch');
+      progressWrap.classList.add('hidden'); loadingSkel.classList.add('hidden');
+      fetchBtn.disabled=false; urlInput.disabled=false;
+    }
+  }
+  function detectPlatform(url) {
+    if(/tiktok\.com/i.test(url))             return 'TikTok';
+    if(/instagram\.com/i.test(url))           return 'Instagram';
+    if(/youtube\.com|youtu\.be/i.test(url))   return 'YouTube';
+    if(/facebook\.com|fb\.watch/i.test(url))  return 'Facebook';
+    if(/twitter\.com|x\.com/i.test(url))      return 'X/Twitter';
+    return 'Video';
+  }
+  function formatNum(n) {
+    if(!n) return null; n=parseInt(n);
+    if(n>=1_000_000) return (n/1_000_000).toFixed(1)+'M';
+    if(n>=1_000)     return (n/1_000).toFixed(1)+'K';
+    return n.toString();
+  }
+  function formatDuration(sec) {
+    if(!sec) return null;
+    return `${Math.floor(sec/60)}:${(sec%60).toString().padStart(2,'0')}`;
+  }
+  function formatBytes(b) {
+    if(b<1024)         return b+'B';
+    if(b<1024*1024)    return (b/1024).toFixed(1)+' KB';
+    return (b/(1024*1024)).toFixed(2)+' MB';
+  }
+
+  async function fetchVideo() {
+    const url = urlInput.value.trim();
+    if(!url){ showToast(t('toastPaste'),'info'); urlInput.focus(); return; }
+    if(!url.startsWith('http')){ showToast(t('toastBadUrl'),'error'); return; }
+    if(currentController) currentController.abort();
+    currentController = new AbortController();
+    const platform = detectPlatform(url);
+    setLoadingState(true);
+    progressLabel.textContent = t('progressConnect');
+    fetchTimeout = setTimeout(()=>{ progressLabel.textContent = t('progressProcess'); },4000);
+    try {
+      const json = await callTikWMWithFallback(url, currentController.signal);
+      clearTimeout(fetchTimeout);
+      progressLabel.textContent = t('progressDone');
+      renderResult(json.data, platform);
+    } catch(err) {
+      clearTimeout(fetchTimeout);
+      if(err.name==='AbortError') return;
+      setLoadingState(false); hideAll();
+      errorState.classList.remove('hidden'); howToSection.classList.add('hidden');
+      let msg = err.message||'Unknown error';
+      if(/failed to fetch|network|cors/i.test(msg)) msg=t('errNetwork');
+      errorMsg.textContent=msg;
+    }
+  }
+
+  async function callTikWMWithFallback(videoUrl, signal) {
+    const EP = 'https://www.tikwm.com/api/';
+    const body = new URLSearchParams({ url:videoUrl, hd:'1' });
+    // Attempt 1: Direct
+    try {
+      progressLabel.textContent=t('progressDirect');
+      const r=await fetch(EP,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body,signal});
+      if(r.ok){const j=await r.json();if(j.code===0)return j;throw new Error(j.msg||'API error');}
+    } catch(e){if(e.name==='AbortError')throw e;console.warn('[BD] Direct→',e.message);}
+    // Attempt 2: allorigins
+    try {
+      progressLabel.textContent=t('progressProxy1');
+      const pUrl=`https://api.allorigins.win/get?url=${encodeURIComponent(EP+'?'+body.toString())}`;
+      const r2=await fetch(pUrl,{signal});
+      if(!r2.ok)throw new Error(`Proxy HTTP ${r2.status}`);
+      const w=await r2.json();const j2=JSON.parse(w.contents);
+      if(j2.code===0)return j2;throw new Error(j2.msg||'API error');
+    } catch(e){if(e.name==='AbortError')throw e;console.warn('[BD] allorigins→',e.message);}
+    // Attempt 3: corsproxy.io
+    try {
+      progressLabel.textContent=t('progressProxy2');
+      const r3=await fetch('https://corsproxy.io/?'+EP,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body,signal});
+      if(!r3.ok)throw new Error(`Proxy2 HTTP ${r3.status}`);
+      const j3=await r3.json();
+      if(j3.code===0)return j3;throw new Error(j3.msg||'API error');
+    } catch(e){
+      if(e.name==='AbortError')throw e;
+      throw new Error(t('errAllFailed'));
+    }
+  }
+
+  // ══════════════════════════════════════════
+  //  DOWNLOAD WITH PROGRESS
+  // ══════════════════════════════════════════
+  let dlController = null;
+  const CIRCUMFERENCE = 2 * Math.PI * 52; // r=52
+
+  function showDlOverlay(filename) {
+    document.getElementById('dl-overlay').classList.remove('hidden');
+    document.getElementById('dl-filename').textContent = filename;
+    document.getElementById('dl-status-text').textContent = t('dlDownloading');
+    setDlProgress(0, 0, null);
+  }
+  function hideDlOverlay() {
+    document.getElementById('dl-overlay').classList.add('hidden');
+  }
+
+  let _speedSamples = [];
+  let _lastBytes = 0;
+  let _lastTime = 0;
+
+  function setDlProgress(pct, received, total) {
+    // Update ring
+    const ring = document.getElementById('dl-ring-fill');
+    const spinner = document.getElementById('dl-spinner-svg');
+    const ringSvg = document.getElementById('dl-ring-svg');
+
+    if(total) {
+      ringSvg.classList.remove('hidden'); spinner.classList.add('hidden');
+      const offset = CIRCUMFERENCE - (pct/100)*CIRCUMFERENCE;
+      ring.style.strokeDashoffset = offset;
+    } else {
+      ringSvg.classList.add('hidden'); spinner.classList.remove('hidden');
+    }
+
+    document.getElementById('dl-pct-num').textContent = total ? pct : '…';
+    document.getElementById('dl-bar').style.width = total ? pct+'%' : '100%';
+    document.getElementById('dl-received').textContent = formatBytes(received);
+    document.getElementById('dl-total').textContent = total ? formatBytes(total) : '—';
+
+    // Speed calculation
+    const now = Date.now();
+    if(_lastTime>0 && now-_lastTime > 200) {
+      const speed = (received - _lastBytes) / ((now-_lastTime)/1000);
+      _speedSamples.push(speed);
+      if(_speedSamples.length>5) _speedSamples.shift();
+      const avgSpeed = _speedSamples.reduce((a,b)=>a+b,0)/_speedSamples.length;
+      document.getElementById('dl-speed').textContent = formatBytes(avgSpeed)+'/s';
+      _lastBytes = received; _lastTime = now;
+    } else if(_lastTime===0) {
+      _lastBytes = received; _lastTime = now;
+    }
+  }
+
+  function cancelDownload() {
+    if(dlController){ dlController.abort(); dlController=null; }
+    hideDlOverlay();
+    showToast(t('toastDlCancel'),'info');
+  }
+
+  async function downloadWithProgress(url, filename) {
+    // Reset speed tracking
+    _speedSamples=[]; _lastBytes=0; _lastTime=0;
+
+    dlController = new AbortController();
+    showDlOverlay(filename);
+
+    try {
+      const resp = await fetch(url, {
+        signal: dlController.signal,
+        headers: { 'Cache-Control':'no-cache' },
+        mode: 'cors',
+      });
+      if(!resp.ok) throw new Error(`HTTP ${resp.status}`);
+
+      const contentLength = resp.headers.get('Content-Length');
+      const total = contentLength ? parseInt(contentLength) : null;
+      const reader = resp.body.getReader();
+      const chunks = [];
+      let received = 0;
+
+      while(true) {
+        const { done, value } = await reader.read();
+        if(done) break;
+        if(dlController.signal.aborted) return; // cancelled mid-download
+        chunks.push(value);
+        received += value.length;
+        const pct = total ? Math.round((received/total)*100) : 0;
+        setDlProgress(pct, received, total);
+      }
+
+      // Build blob & trigger download
+      document.getElementById('dl-status-text').textContent = t('dlDone');
+      setDlProgress(100, received, total||received);
+      await new Promise(r => setTimeout(r, 400)); // brief flash of 100%
+
+      const blob = new Blob(chunks);
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = blobUrl; a.download = filename; document.body.appendChild(a);
+      a.click(); a.remove();
+      setTimeout(()=>URL.revokeObjectURL(blobUrl), 5000);
+
+      hideDlOverlay();
+      showToast(t('toastDlDone'),'success');
+
+    } catch(err) {
+      hideDlOverlay();
+      if(err.name==='AbortError') return; // user cancelled
+      console.warn('[BD] Download failed, fallback →', err.message);
+      // Graceful fallback: open in new tab
+      window.open(url, '_blank');
+      showToast(t('toastDlFail'),'warn');
+    }
+  }
+
+  // ══════════════════════════════════════════
+  //  Render result
+  // ══════════════════════════════════════════
+  function renderResult(data, platform) {
+    setLoadingState(false); hideAll(); howToSection.classList.add('hidden');
+
+    const thumb = document.getElementById('result-thumb');
+    thumb.src = data.cover||data.origin_cover||''; thumb.style.display='';
+    thumb.onerror=()=>{ thumb.style.display='none'; };
+
+    const durEl = document.getElementById('result-duration');
+    const dur = formatDuration(data.duration);
+    if(dur){durEl.textContent=dur;durEl.classList.remove('hidden');}else{durEl.classList.add('hidden');}
+
+    document.getElementById('result-title').textContent = data.title||`${t('videoFrom')} ${platform}`;
+    document.getElementById('result-author-name').textContent = data.author?.nickname||data.author?.unique_id||'—';
+
+    const playsN=formatNum(data.play_count||data.play);
+    const playsEl=document.getElementById('result-plays');
+    if(playsN){document.getElementById('result-plays-count').textContent=`${playsN} ${t('views')}`;playsEl.classList.remove('hidden');}
+    else playsEl.classList.add('hidden');
+
+    const likesN=formatNum(data.digg_count||data.digg);
+    const likesEl=document.getElementById('result-likes');
+    if(likesN){document.getElementById('result-likes-count').textContent=`${likesN} ${t('likes')}`;likesEl.classList.remove('hidden');}
+    else likesEl.classList.add('hidden');
+
+    const dlContainer = document.getElementById('download-buttons');
+    dlContainer.innerHTML='';
+
+    // ── Helper: create download button with progress ──
+    const addBtn = (label, url, ext, primary=false) => {
+      const btn = document.createElement('button');
+      btn.type='button';
+      btn.className = primary
+        ? 'btn-download inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white shadow-md cursor-pointer'
+        : 'inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-slate-300 bg-dark-700/80 hover:bg-dark-600/80 border border-white/5 transition-all hover:text-white cursor-pointer';
+      btn.innerHTML=`<svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/></svg>${label}`;
+      const slug = (data.title||'video').replace(/[^a-z0-9\u0E00-\u0E7F]/gi,'_').slice(0,40);
+      btn.onclick=()=>downloadWithProgress(url, `bocchi_${slug}.${ext}`);
+      dlContainer.appendChild(btn);
+    };
+
+    if(data.hdplay) addBtn(t('dlHD'),    data.hdplay, 'mp4', true);
+    if(data.play)   addBtn(t('dlNormal'),data.play,   'mp4', !data.hdplay);
+    if(data.wmplay) addBtn(t('dlWM'),    data.wmplay, 'mp4', false);
+    if(data.images?.length) data.images.forEach((u,i)=>addBtn(`${t('dlImage')} ${i+1}`,u,'jpg',i===0));
+
+    const audioSec  = document.getElementById('audio-section');
+    const audioBtns = document.getElementById('audio-buttons');
+    audioBtns.innerHTML='';
+    const audioUrl = data.music||data.music_info?.play;
+    if(audioUrl){
+      const musicTitle = data.music_info?.title||t('dlAudio');
+      const aBtn = document.createElement('button');
+      aBtn.type='button';
+      aBtn.className='btn-download inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white shadow-md cursor-pointer';
+      aBtn.innerHTML=`<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 9l10.5-3m0 6.553v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 11-.99-3.467l2.31-.66a2.25 2.25 0 001.632-2.163zm0 0V2.25L9 5.25v10.303m0 0v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 01-.99-3.467l2.31-.66A2.25 2.25 0 009 15.553z"/></svg>⬇ ${musicTitle}`;
+      const slug=(data.title||'audio').replace(/[^a-z0-9\u0E00-\u0E7F]/gi,'_').slice(0,40);
+      aBtn.onclick=()=>downloadWithProgress(audioUrl,`bocchi_${slug}.mp3`);
+      audioBtns.appendChild(aBtn);
+      audioSec.classList.remove('hidden');
+    } else { audioSec.classList.add('hidden'); }
+
+    resultCard.classList.remove('hidden');
+    resultCard.scrollIntoView({behavior:'smooth',block:'nearest'});
+    showToast(t('toastSuccess'),'success');
+  }
+
+  // ══════════════════════════════════════════
+  //  Toast
+  // ══════════════════════════════════════════
+  function showToast(msg, type='info') {
+    const c=document.getElementById('toast-container');
+    const toast=document.createElement('div');
+    toast.className=`toast toast-${type}`; toast.textContent=msg; c.appendChild(toast);
+    setTimeout(()=>{ toast.style.opacity='0'; toast.style.transition='opacity .3s ease'; setTimeout(()=>toast.remove(),350); },3000);
+  }
+  </script>
+</body>
+</html>
