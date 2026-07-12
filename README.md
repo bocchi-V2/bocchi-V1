@@ -1,4 +1,4 @@
-# SnapLoad 🎬
+# bocchi 🎬
 **ดาวน์โหลดวิดีโอ TikTok / Reels ไม่มีลายน้ำ — ฟรี ไม่ต้องติดตั้งอะไร**
 
 [![Deploy to GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-Live-brightgreen)](https://YOUR-USERNAME.github.io/snapload)
