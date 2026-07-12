@@ -268,7 +268,8 @@
       background: rgba(236, 72, 153, 0.05) !important;
     }
     .remover-preview-wrap {
-      max-height: 400px;
+      height: 500px;
+      max-height: 70vh;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -469,15 +470,15 @@
       <div id="remover-workspace" class="hidden flex flex-col gap-6">
         <!-- Preview Canvas -->
         <div class="remover-preview-wrap checkerboard" id="preview-container" style="position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center;">
-          <div style="position:relative;display:inline-block;max-width:100%;max-height:100%;">
-            <canvas id="remover-canvas" style="display:block;max-width:100%;max-height:100%;cursor:none;"></canvas>
+          <div id="canvas-wrapper" style="position:relative;display:inline-block;max-width:100%;max-height:100%;">
+            <canvas id="remover-canvas" style="display:block;max-width:100%;max-height:100%;cursor:none;z-index:10;"></canvas>
             <!-- Ghost overlay (original image at low opacity, shown in Restore mode) -->
-            <canvas id="ghost-canvas" style="position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;pointer-events:none;transition:opacity 0.25s;"></canvas>
+            <canvas id="ghost-canvas" style="position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;pointer-events:none;transition:opacity 0.25s;z-index:20;"></canvas>
             <!-- Overlay canvas for drawing strokes in real-time -->
-            <canvas id="overlay-canvas" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;"></canvas>
+            <canvas id="overlay-canvas" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:30;"></canvas>
           </div>
           <!-- Brush cursor overlay -->
-          <div id="brush-cursor" style="position:absolute;pointer-events:none;border-radius:50%;border:2px solid rgba(255,255,255,0.8);box-shadow:0 0 0 1px rgba(0,0,0,0.5);display:none;transform:translate(-50%,-50%);transition:width 0.1s,height 0.1s;"></div>
+          <div id="brush-cursor" style="position:absolute;pointer-events:none;border-radius:50%;border:2px solid rgba(255,255,255,0.8);box-shadow:0 0 0 1px rgba(0,0,0,0.5);display:none;transform:translate(-50%,-50%);transition:width 0.1s,height 0.1s;z-index:40;"></div>
           
           <!-- Processing Overlay -->
           <div id="remover-loading-overlay" class="absolute inset-0 bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center hidden">
@@ -1426,6 +1427,7 @@
   function setupBrushEvents() {
     const canvas = document.getElementById('remover-canvas');
     const overlayCanvas = document.getElementById('overlay-canvas');
+    const canvasWrapper = document.getElementById('canvas-wrapper');
     const cursor = document.getElementById('brush-cursor');
     const container = document.getElementById('preview-container');
 
@@ -1498,13 +1500,13 @@
       currentStrokePoints = [];
     };
 
-    canvas.addEventListener('mousedown',  onStart,  { passive: false });
-    canvas.addEventListener('mousemove',  onMove,   { passive: false });
-    canvas.addEventListener('mouseup',    onEnd);
-    canvas.addEventListener('mouseleave', onLeave);
-    canvas.addEventListener('touchstart', onStart,  { passive: false });
-    canvas.addEventListener('touchmove',  onMove,   { passive: false });
-    canvas.addEventListener('touchend',   onEnd);
+    canvasWrapper.addEventListener('mousedown',  onStart,  { passive: false });
+    canvasWrapper.addEventListener('mousemove',  onMove,   { passive: false });
+    canvasWrapper.addEventListener('mouseup',    onEnd);
+    canvasWrapper.addEventListener('mouseleave', onLeave);
+    canvasWrapper.addEventListener('touchstart', onStart,  { passive: false });
+    canvasWrapper.addEventListener('touchmove',  onMove,   { passive: false });
+    canvasWrapper.addEventListener('touchend',   onEnd);
   }
 
   // Call setupBrushEvents once at script load
