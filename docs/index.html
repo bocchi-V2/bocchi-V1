@@ -1225,10 +1225,10 @@
     restoreBtn.className = tool === 'restore' ? activeClass : inactiveClass;
     // change cursor colour
     const cursor = document.getElementById('brush-cursor');
-    cursor.style.borderColor = tool === 'erase' ? 'rgba(239,68,68,0.85)' : 'rgba(52,211,153,0.85)';
-    // show ghost canvas in both erase and restore modes
+    cursor.style.borderColor = tool === 'erase' ? 'rgba(239, 68, 68, 0.85)' : 'rgba(52, 211, 153, 0.85)';
+    // show ghost canvas only in restore mode, hide it in erase mode
     const ghost = document.getElementById('ghost-canvas');
-    ghost.style.opacity = (tool === 'restore' || tool === 'erase') ? '0.30' : '0';
+    ghost.style.opacity = (tool === 'restore') ? '0.30' : '0';
   }
 
   function updateBrushSize(val) {
@@ -1364,6 +1364,7 @@
   }
 
   function applyStrokeToMainCanvas() {
+    if (currentStrokePoints.length === 0) return;
     const canvas = document.getElementById('remover-canvas');
     const ctx = canvas.getContext('2d');
     const rect = canvas.getBoundingClientRect();
@@ -1387,7 +1388,7 @@
       drawStrokeOnCanvas(ctx, currentStrokePoints, canvasBrushSize, 'rgba(0,0,0,1)');
       ctx.restore();
     } else {
-      if (!originalImageData) return;
+      if (!loadedImageElement) return;
       // Temp canvas for masking
       const tempCanvas = document.createElement('canvas');
       tempCanvas.width = canvas.width;
@@ -1399,14 +1400,7 @@
       
       // Composite original image
       tempCtx.globalCompositeOperation = 'source-in';
-      
-      // Create a temporary image data canvas to put originalImageData
-      const imgDataCanvas = document.createElement('canvas');
-      imgDataCanvas.width = canvas.width;
-      imgDataCanvas.height = canvas.height;
-      imgDataCanvas.getContext('2d').putImageData(originalImageData, 0, 0);
-      
-      tempCtx.drawImage(imgDataCanvas, 0, 0);
+      tempCtx.drawImage(loadedImageElement, 0, 0, canvas.width, canvas.height);
       
       // Draw onto main canvas
       ctx.save();
@@ -1429,43 +1423,6 @@
     }
   }
 
-  function paintPoint(x, y) {
-    const canvas = document.getElementById('remover-canvas');
-    const ctx = canvas.getContext('2d');
-    const rect = canvas.getBoundingClientRect();
-    const r = (brushSize / 2) * (canvas.width / rect.width);
-
-    // Track stroke bbox
-    if (!strokeBbox) strokeBbox = { x1: x, y1: y, x2: x, y2: y };
-    strokeBbox.x1 = Math.min(strokeBbox.x1, x - r);
-    strokeBbox.y1 = Math.min(strokeBbox.y1, y - r);
-    strokeBbox.x2 = Math.max(strokeBbox.x2, x + r);
-    strokeBbox.y2 = Math.max(strokeBbox.y2, y + r);
-
-    ctx.save();
-    ctx.beginPath();
-    ctx.arc(x, y, r, 0, Math.PI * 2);
-
-    if (activeTool === 'erase') {
-      ctx.globalCompositeOperation = 'destination-out';
-      ctx.fillStyle = 'rgba(0,0,0,1)';
-      ctx.fill();
-    } else {
-      // Restore: clip original image to the circle
-      if (!originalImageData) { ctx.restore(); return; }
-      ctx.clip();
-      const imgC = document.createElement('canvas');
-      imgC.width = canvas.width;
-      imgC.height = canvas.height;
-      imgC.getContext('2d').putImageData(originalImageData, 0, 0);
-      ctx.globalCompositeOperation = 'source-over';
-      ctx.drawImage(imgC, 0, 0);
-    }
-    ctx.restore();
-  }
-
-  let strokeBbox = null;
-
   function setupBrushEvents() {
     const canvas = document.getElementById('remover-canvas');
     const overlayCanvas = document.getElementById('overlay-canvas');
@@ -1475,18 +1432,24 @@
     const onStart = (e) => {
       if (fileType !== 'image') return;
       e.preventDefault();
+      
+      const overlayCtx = overlayCanvas.getContext('2d');
+      overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+      
       pushUndo();
       isPainting = true;
-      strokeBbox = null;
-      document.getElementById('overlay-canvas').getContext('2d')
-        .clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
       const pos = getCanvasPos(e);
-      paintPoint(pos.x, pos.y);
+      currentStrokePoints = [pos];
+      
+      const rect = canvas.getBoundingClientRect();
+      const canvasBrushSize = brushSize * (canvas.width / rect.width);
+      const color = activeTool === 'erase' ? 'rgba(239, 68, 68, 0.45)' : 'rgba(52, 211, 153, 0.45)';
+      drawStrokeOnCanvas(overlayCtx, currentStrokePoints, canvasBrushSize, color);
     };
-
+    
     const onMove = (e) => {
       e.preventDefault();
-
+      
       // Move cursor circle
       const rect = container.getBoundingClientRect();
       let clientX = e.clientX, clientY = e.clientY;
@@ -1494,37 +1457,45 @@
         clientX = e.touches[0].clientX;
         clientY = e.touches[0].clientY;
       }
-      cursor.style.left   = (clientX - rect.left) + 'px';
-      cursor.style.top    = (clientY - rect.top) + 'px';
+      cursor.style.left = (clientX - rect.left) + 'px';
+      cursor.style.top  = (clientY - rect.top)  + 'px';
       cursor.style.display = 'block';
       cursor.style.width  = brushSize + 'px';
       cursor.style.height = brushSize + 'px';
 
       if (isPainting) {
         const pos = getCanvasPos(e);
-        paintPoint(pos.x, pos.y);
+        currentStrokePoints.push(pos);
+        
+        const overlayCtx = overlayCanvas.getContext('2d');
+        overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+        
+        const canvasRect = canvas.getBoundingClientRect();
+        const canvasBrushSize = brushSize * (canvas.width / canvasRect.width);
+        const color = activeTool === 'erase' ? 'rgba(239, 68, 68, 0.45)' : 'rgba(52, 211, 153, 0.45)';
+        drawStrokeOnCanvas(overlayCtx, currentStrokePoints, canvasBrushSize, color);
       }
     };
-
+    
     const onEnd = () => {
-      if (isPainting && strokeBbox) {
-        refineEdgesInBbox(strokeBbox.x1, strokeBbox.y1, strokeBbox.x2, strokeBbox.y2);
-        updateGhostCanvas();
-        strokeBbox = null;
+      if (isPainting) {
+        applyStrokeToMainCanvas();
+        const overlayCtx = overlayCanvas.getContext('2d');
+        overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
       }
       isPainting = false;
-      overlayCanvas.getContext('2d').clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+      currentStrokePoints = [];
     };
-
+    
     const onLeave = () => {
-      if (isPainting && strokeBbox) {
-        refineEdgesInBbox(strokeBbox.x1, strokeBbox.y1, strokeBbox.x2, strokeBbox.y2);
-        updateGhostCanvas();
-        strokeBbox = null;
+      if (isPainting) {
+        applyStrokeToMainCanvas();
+        const overlayCtx = overlayCanvas.getContext('2d');
+        overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
       }
       cursor.style.display = 'none';
       isPainting = false;
-      overlayCanvas.getContext('2d').clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+      currentStrokePoints = [];
     };
 
     canvas.addEventListener('mousedown',  onStart,  { passive: false });
