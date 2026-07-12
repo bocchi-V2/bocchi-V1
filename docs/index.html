@@ -1023,13 +1023,14 @@
     dlController = new AbortController();
     showDlOverlay(filename);
 
-    try {
-      const resp = await fetch(url, {
+    // Helper: stream-fetch a URL and save as blob download
+    async function fetchAndSave(fetchUrl, label) {
+      const resp = await fetch(fetchUrl, {
         signal: dlController.signal,
         headers: { 'Cache-Control':'no-cache' },
         mode: 'cors',
       });
-      if(!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      if(!resp.ok) throw new Error(`HTTP ${resp.status} (${label})`);
 
       const contentLength = resp.headers.get('Content-Length');
       const total = contentLength ? parseInt(contentLength) : null;
@@ -1040,34 +1041,78 @@
       while(true) {
         const { done, value } = await reader.read();
         if(done) break;
-        if(dlController.signal.aborted) return; // cancelled mid-download
+        if(dlController.signal.aborted) return;
         chunks.push(value);
         received += value.length;
         const pct = total ? Math.round((received/total)*100) : 0;
         setDlProgress(pct, received, total);
       }
 
-      // Build blob & trigger download
+      // Trigger blob download
       document.getElementById('dl-status-text').textContent = t('dlDone');
       setDlProgress(100, received, total||received);
-      await new Promise(r => setTimeout(r, 400)); // brief flash of 100%
+      await new Promise(r => setTimeout(r, 400));
 
-      const blob = new Blob(chunks);
+      const blob = new Blob(chunks, { type: 'video/mp4' });
       const blobUrl = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = blobUrl; a.download = filename; document.body.appendChild(a);
       a.click(); a.remove();
-      setTimeout(()=>URL.revokeObjectURL(blobUrl), 5000);
+      setTimeout(()=>URL.revokeObjectURL(blobUrl), 8000);
+    }
 
+    try {
+      // Attempt 1: Direct CORS fetch
+      try {
+        await fetchAndSave(url, 'direct');
+        hideDlOverlay();
+        showToast(t('toastDlDone'),'success');
+        return;
+      } catch(e1) {
+        if(e1.name==='AbortError') { hideDlOverlay(); return; }
+        console.warn('[BD] Direct fetch failed →', e1.message);
+      }
+
+      // Attempt 2: Route through corsproxy.io
+      try {
+        document.getElementById('dl-status-text').textContent = 'กำลังดาวน์โหลดผ่าน proxy...';
+        const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(url);
+        await fetchAndSave(proxyUrl, 'corsproxy');
+        hideDlOverlay();
+        showToast(t('toastDlDone'),'success');
+        return;
+      } catch(e2) {
+        if(e2.name==='AbortError') { hideDlOverlay(); return; }
+        console.warn('[BD] Proxy1 fetch failed →', e2.message);
+      }
+
+      // Attempt 3: allorigins (returns base64 blob)
+      try {
+        document.getElementById('dl-status-text').textContent = 'กำลังดาวน์โหลด (proxy สำรอง)...';
+        const aoUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
+        await fetchAndSave(aoUrl, 'allorigins');
+        hideDlOverlay();
+        showToast(t('toastDlDone'),'success');
+        return;
+      } catch(e3) {
+        if(e3.name==='AbortError') { hideDlOverlay(); return; }
+        console.warn('[BD] Proxy2 fetch failed →', e3.message);
+      }
+
+      // Final fallback: force download via <a> with download attr on same-origin link
       hideDlOverlay();
-      showToast(t('toastDlDone'),'success');
+      const a = document.createElement('a');
+      a.href = url; a.download = filename; a.target = '_blank';
+      document.body.appendChild(a); a.click(); a.remove();
+      showToast(t('toastDlFail'),'warn');
 
     } catch(err) {
       hideDlOverlay();
-      if(err.name==='AbortError') return; // user cancelled
-      console.warn('[BD] Download failed, fallback →', err.message);
-      // Graceful fallback: open in new tab
-      window.open(url, '_blank');
+      if(err.name==='AbortError') return;
+      console.warn('[BD] All download attempts failed →', err.message);
+      const a = document.createElement('a');
+      a.href = url; a.download = filename; a.target = '_blank';
+      document.body.appendChild(a); a.click(); a.remove();
       showToast(t('toastDlFail'),'warn');
     }
   }
@@ -1116,9 +1161,16 @@
       dlContainer.appendChild(btn);
     };
 
-    if(data.hdplay) addBtn(t('dlHD'),    data.hdplay, 'mp4', true);
-    if(data.play)   addBtn(t('dlNormal'),data.play,   'mp4', !data.hdplay);
-    if(data.wmplay) addBtn(t('dlWM'),    data.wmplay, 'mp4', false);
+    const hasHd = data.hdplay && 
+                  data.hdplay !== data.music && 
+                  data.hdplay !== data.music_info?.play && 
+                  !data.hdplay.includes('music') && 
+                  !data.hdplay.includes('.mp3');
+
+    if(hasHd)       addBtn(t('dlHD'),    data.hdplay, 'mp4', true);
+    if(data.play)   addBtn(t('dlNormal'),data.play,   'mp4', !hasHd);
+    const wmUrl = data.wmplay || data.wm_play;
+    if(wmUrl)       addBtn(t('dlWM'),    wmUrl,       'mp4', false);
     if(data.images?.length) data.images.forEach((u,i)=>addBtn(`${t('dlImage')} ${i+1}`,u,'jpg',i===0));
 
     const audioSec  = document.getElementById('audio-section');
