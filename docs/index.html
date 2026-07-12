@@ -1226,9 +1226,9 @@
     // change cursor colour
     const cursor = document.getElementById('brush-cursor');
     cursor.style.borderColor = tool === 'erase' ? 'rgba(239,68,68,0.85)' : 'rgba(52,211,153,0.85)';
-    // show ghost canvas only in restore mode
+    // show ghost canvas in both erase and restore modes
     const ghost = document.getElementById('ghost-canvas');
-    ghost.style.opacity = tool === 'restore' ? '0.30' : '0';
+    ghost.style.opacity = (tool === 'restore' || tool === 'erase') ? '0.30' : '0';
   }
 
   function updateBrushSize(val) {
@@ -1246,7 +1246,19 @@
     const ghost  = document.getElementById('ghost-canvas');
     ghost.width  = canvas.width;
     ghost.height = canvas.height;
-    ghost.getContext('2d').putImageData(originalImageData, 0, 0);
+    const gCtx = ghost.getContext('2d');
+    
+    // Draw original image onto a temporary canvas and draw to ghost
+    const tempC = document.createElement('canvas');
+    tempC.width = canvas.width;
+    tempC.height = canvas.height;
+    tempC.getContext('2d').putImageData(originalImageData, 0, 0);
+    gCtx.drawImage(tempC, 0, 0);
+    
+    // Mask original image to only show transparent cutouts
+    gCtx.globalCompositeOperation = 'destination-out';
+    gCtx.drawImage(canvas, 0, 0);
+    gCtx.globalCompositeOperation = 'source-over';
   }
 
   // After a stroke, clean up fuzzy edges in the affected bounding box.
@@ -1293,6 +1305,7 @@
     ctx.putImageData(undoStack.pop(), 0, 0);
     document.getElementById('undo-btn').disabled = undoStack.length === 0;
     document.getElementById('redo-btn').disabled = false;
+    updateGhostCanvas();
   }
 
   function redoPaint() {
@@ -1303,6 +1316,7 @@
     ctx.putImageData(redoStack.pop(), 0, 0);
     document.getElementById('undo-btn').disabled = false;
     document.getElementById('redo-btn').disabled = redoStack.length === 0;
+    updateGhostCanvas();
   }
 
   function getCanvasPos(e) {
@@ -1394,6 +1408,7 @@
 
     // Refine edges inside the stroke bbox
     refineEdgesInBbox(x1, y1, x2, y2);
+    updateGhostCanvas();
   }
 
   function updateOverlayCanvasSize() {
