@@ -1328,52 +1328,56 @@
     strokeBbox.x2 = Math.max(strokeBbox.x2, x + r);
     strokeBbox.y2 = Math.max(strokeBbox.y2, y + r);
 
+    const ix = Math.round(x - r);
+    const iy = Math.round(y - r);
+    const iw = Math.round(r * 2);
+    const ih = Math.round(r * 2);
+    if (iw <= 0 || ih <= 0) return;
+
     if (activeTool === 'erase') {
-      // Erase: remove alpha in a soft gradient circle
-      const id = ctx.getImageData(x - r, y - r, r * 2, r * 2);
-      for (let py = 0; py < id.height; py++) {
-        for (let px = 0; px < id.width; px++) {
-          const dx = px - r, dy = py - r;
+      const id = ctx.getImageData(ix, iy, iw, ih);
+      const halfW = iw / 2;
+      const halfH = ih / 2;
+      for (let py = 0; py < ih; py++) {
+        for (let px = 0; px < iw; px++) {
+          const dx = px - halfW, dy = py - halfH;
           const dist = Math.sqrt(dx*dx + dy*dy);
-          if (dist <= r) {
-            // hard core (inner 50%) erases fully, outer 50% tapers
-            const t = dist / r;
+          if (dist <= halfW) {
+            const t = dist / halfW;
             const strength = t < 0.5 ? 1.0 : (1.0 - (t - 0.5) * 2);
-            const i = (py * id.width + px) * 4;
+            const i = (py * iw + px) * 4;
             id.data[i + 3] = Math.max(0, id.data[i + 3] - Math.round(255 * strength));
           }
         }
       }
-      ctx.putImageData(id, x - r, y - r);
+      ctx.putImageData(id, ix, iy);
     } else {
-      // Restore: gradually paint original pixels back (soft, max ~50% per pass)
       if (!originalImageData) return;
-      const id  = ctx.getImageData(x - r, y - r, r * 2, r * 2);
+      const id  = ctx.getImageData(ix, iy, iw, ih);
       const src = originalImageData;
-      for (let py = 0; py < id.height; py++) {
-        for (let px = 0; px < id.width; px++) {
-          const dx = px - r, dy = py - r;
+      const halfW = iw / 2;
+      const halfH = ih / 2;
+      for (let py = 0; py < ih; py++) {
+        for (let px = 0; px < iw; px++) {
+          const dx = px - halfW, dy = py - halfH;
           const dist = Math.sqrt(dx*dx + dy*dy);
-          if (dist <= r) {
-            const t = dist / r;
-            // soft brush: strong in centre, fades at edges; max strength = 0.5 so it builds up gradually
+          if (dist <= halfW) {
+            const t = dist / halfW;
             const strength = (t < 0.5 ? 1.0 : (1.0 - (t - 0.5) * 2)) * 0.5;
-            const si = (Math.round(y - r + py) * canvas.width + Math.round(x - r + px)) * 4;
-            const di = (py * id.width + px) * 4;
+            const si = ((iy + py) * canvas.width + (ix + px)) * 4;
+            const di = (py * iw + px) * 4;
             if (si >= 0 && si + 3 < src.data.length) {
               const origAlpha = src.data[si + 3];
-              // Blend colour toward original
               const blend = strength;
               id.data[di]     = Math.round(id.data[di]     * (1 - blend) + src.data[si]     * blend);
               id.data[di + 1] = Math.round(id.data[di + 1] * (1 - blend) + src.data[si + 1] * blend);
               id.data[di + 2] = Math.round(id.data[di + 2] * (1 - blend) + src.data[si + 2] * blend);
-              // Restore alpha toward original, softly
               id.data[di + 3] = Math.min(255, Math.round(id.data[di + 3] + origAlpha * strength));
             }
           }
         }
       }
-      ctx.putImageData(id, x - r, y - r);
+      ctx.putImageData(id, ix, iy);
     }
   }
 
@@ -1491,17 +1495,18 @@
     
     ctx.clearRect(0, 0, width, height);
     
-    // 1. Draw selected background
-    if (bgMode === 'transparent') {
-      // Transparency is shown by checkerboard css class on the parent, so we clear the canvas.
-    } else if (bgMode === 'color') {
-      ctx.fillStyle = bgColor;
-      ctx.fillRect(0, 0, width, height);
-    } else if (bgMode === 'image' && customBgImage) {
-      ctx.drawImage(customBgImage, 0, 0, width, height);
+    // Draw background on canvas ONLY for video (since stream is captured from canvas).
+    // For images, we keep canvas transparent so user edits are preserved, and background is shown via CSS.
+    if (fileType === 'video') {
+      if (bgMode === 'color') {
+        ctx.fillStyle = bgColor;
+        ctx.fillRect(0, 0, width, height);
+      } else if (bgMode === 'image' && customBgImage) {
+        ctx.drawImage(customBgImage, 0, 0, width, height);
+      }
     }
     
-    // 2. Draw segmentation mask Source-In
+    // Draw segmentation mask Source-In
     ctx.save();
     ctx.drawImage(results.segmentationMask, 0, 0, width, height);
     ctx.globalCompositeOperation = 'source-in';
@@ -1664,10 +1669,28 @@
     }
   }
   
+  function updatePreviewBackgroundCSS() {
+    const container = document.getElementById('preview-container');
+    if (bgMode === 'transparent') {
+      container.classList.add('checkerboard');
+      container.style.backgroundColor = '';
+      container.style.backgroundImage = '';
+    } else if (bgMode === 'color') {
+      container.classList.remove('checkerboard');
+      container.style.backgroundColor = bgColor;
+      container.style.backgroundImage = '';
+    } else if (bgMode === 'image' && customBgImage) {
+      container.classList.remove('checkerboard');
+      container.style.backgroundColor = '';
+      container.style.backgroundImage = `url(${customBgImage.src})`;
+      container.style.backgroundSize = 'cover';
+      container.style.backgroundPosition = 'center';
+    }
+  }
+  
   function triggerRender() {
-    if (fileType === 'image' && loadedImageElement && isModelLoaded) {
-      selfieSegmentation.send({ image: loadedImageElement });
-    } else if (fileType === 'video' && loadedVideoElement) {
+    updatePreviewBackgroundCSS();
+    if (fileType === 'video' && loadedVideoElement) {
       if (loadedVideoElement.paused) {
         if (isModelLoaded) {
           selfieSegmentation.send({ image: loadedVideoElement });
@@ -1826,7 +1849,25 @@
   function downloadResult() {
     if (fileType === 'image') {
       const canvas = document.getElementById('remover-canvas');
-      const url = canvas.toDataURL('image/png');
+      
+      // Create temporary canvas to merge background color/image with the transparent subject
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = canvas.width;
+      tempCanvas.height = canvas.height;
+      const tempCtx = tempCanvas.getContext('2d');
+      
+      // Draw background
+      if (bgMode === 'color') {
+        tempCtx.fillStyle = bgColor;
+        tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+      } else if (bgMode === 'image' && customBgImage) {
+        tempCtx.drawImage(customBgImage, 0, 0, tempCanvas.width, tempCanvas.height);
+      }
+      
+      // Draw transparent subject canvas on top
+      tempCtx.drawImage(canvas, 0, 0);
+      
+      const url = tempCanvas.toDataURL('image/png');
       const a = document.createElement('a');
       a.href = url;
       a.download = `bocchi_bg_removed_${Date.now()}.png`;
