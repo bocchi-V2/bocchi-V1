@@ -210,10 +210,10 @@
     /* AI Background Remover Styles */
     .checkerboard {
       background-color: #1a1523;
-      background-image: linear-gradient(45deg, #100b1a 25%, transparent 25%),
-                        linear-gradient(-45deg, #100b1a 25%, transparent 25%),
-                        linear-gradient(45deg, transparent 75%, #100b1a 75%),
-                        linear-gradient(-45deg, transparent 75%, #100b1a 75%);
+      background-image: linear-gradient(45deg, #100b1a 25%, #1a1523 25%),
+                        linear-gradient(-45deg, #100b1a 25%, #1a1523 25%),
+                        linear-gradient(45deg, #1a1523 75%, #100b1a 75%),
+                        linear-gradient(-45deg, #1a1523 75%, #100b1a 75%);
       background-size: 20px 20px;
       background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
     }
@@ -1574,8 +1574,10 @@
       }
     }
     
-    // Draw segmentation mask Source-In
+    // Draw segmentation mask Source-In with high quality smoothing
     ctx.save();
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
     ctx.drawImage(results.segmentationMask, 0, 0, width, height);
     ctx.globalCompositeOperation = 'source-in';
     ctx.drawImage(results.image, 0, 0, width, height);
