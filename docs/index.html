@@ -468,10 +468,12 @@
       <!-- Editor Workspace (Hidden until file selected) -->
       <div id="remover-workspace" class="hidden flex flex-col gap-6">
         <!-- Preview Canvas -->
-        <div class="remover-preview-wrap checkerboard" id="preview-container" style="position:relative;overflow:hidden;">
-          <canvas id="remover-canvas" style="display:block;max-width:100%;cursor:none;"></canvas>
-          <!-- Ghost overlay (original image at low opacity, shown in Restore mode) -->
-          <canvas id="ghost-canvas" style="position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;pointer-events:none;transition:opacity 0.25s;"></canvas>
+        <div class="remover-preview-wrap checkerboard" id="preview-container" style="position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center;">
+          <div style="position:relative;display:inline-block;max-width:100%;max-height:100%;">
+            <canvas id="remover-canvas" style="display:block;max-width:100%;max-height:100%;cursor:none;"></canvas>
+            <!-- Ghost overlay (original image at low opacity, shown in Restore mode) -->
+            <canvas id="ghost-canvas" style="position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;pointer-events:none;transition:opacity 0.25s;"></canvas>
+          </div>
           <!-- Brush cursor overlay -->
           <div id="brush-cursor" style="position:absolute;pointer-events:none;border-radius:50%;border:2px solid rgba(255,255,255,0.8);box-shadow:0 0 0 1px rgba(0,0,0,0.5);display:none;transform:translate(-50%,-50%);transition:width 0.1s,height 0.1s;"></div>
           
@@ -563,7 +565,7 @@
               ← <span data-i18n="btnBack">ย้อนกลับ</span>
             </button>
             <div class="flex gap-2">
-              <button id="remover-action-btn" onclick="processVideo()" class="btn-primary px-5 py-2 text-xs font-semibold rounded-lg text-white hidden">
+              <button id="remover-action-btn" onclick="processMedia()" class="btn-primary px-5 py-2 text-xs font-semibold rounded-lg text-white hidden">
                 <span data-i18n="btnProcess">⚙️ เริ่มประมวลผล</span>
               </button>
               <button id="remover-download-btn" onclick="downloadResult()" class="btn-download px-5 py-2 text-xs font-semibold rounded-lg text-white shadow-md cursor-pointer hidden">
@@ -1534,8 +1536,9 @@
     selectedFile = file;
     if (file.type.startsWith('image/')) {
       fileType = 'image';
-      document.getElementById('remover-action-btn').classList.add('hidden');
-      document.getElementById('remover-download-btn').classList.remove('hidden');
+      document.getElementById('remover-action-btn').classList.remove('hidden');
+      document.getElementById('remover-download-btn').classList.add('hidden');
+      document.getElementById('edit-toolbar').classList.add('hidden');
       
       const reader = new FileReader();
       reader.onload = (event) => {
@@ -1545,22 +1548,11 @@
           canvas.width = loadedImageElement.naturalWidth || loadedImageElement.width;
           canvas.height = loadedImageElement.naturalHeight || loadedImageElement.height;
           
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(loadedImageElement, 0, 0, canvas.width, canvas.height);
+          
           document.getElementById('dropzone').classList.add('hidden');
           document.getElementById('remover-workspace').classList.remove('hidden');
-          
-          initSelfieSegmentation().then(() => {
-            selfieSegmentation.send({ image: loadedImageElement }).then(() => {
-              // After AI finishes, snapshot original for restore tool
-              const c = document.getElementById('remover-canvas');
-              originalImageData = c.getContext('2d').getImageData(0, 0, c.width, c.height);
-              updateGhostCanvas();
-              undoStack = []; redoStack = [];
-              document.getElementById('undo-btn').disabled = true;
-              document.getElementById('redo-btn').disabled = true;
-              // Show edit toolbar only for images
-              document.getElementById('edit-toolbar').classList.remove('hidden');
-            });
-          });
         };
         loadedImageElement.src = event.target.result;
       };
@@ -1685,6 +1677,37 @@
           ctx.drawImage(loadedVideoElement, 0, 0, canvas.width, canvas.height);
         }
       }
+    }
+  }
+
+  function processMedia() {
+    if (fileType === 'image') {
+      document.getElementById('remover-loading-overlay').classList.remove('hidden');
+      document.getElementById('remover-status-text').textContent = t('removerLoadingModel');
+      initSelfieSegmentation().then(() => {
+        selfieSegmentation.send({ image: loadedImageElement }).then(() => {
+          // After AI finishes, snapshot original for restore tool
+          const c = document.getElementById('remover-canvas');
+          originalImageData = c.getContext('2d').getImageData(0, 0, c.width, c.height);
+          updateGhostCanvas();
+          undoStack = []; redoStack = [];
+          document.getElementById('undo-btn').disabled = true;
+          document.getElementById('redo-btn').disabled = true;
+          // Hide loader
+          document.getElementById('remover-loading-overlay').classList.add('hidden');
+          // Show edit toolbar & download button
+          document.getElementById('edit-toolbar').classList.remove('hidden');
+          document.getElementById('remover-download-btn').classList.remove('hidden');
+          // Hide action button
+          document.getElementById('remover-action-btn').classList.add('hidden');
+        });
+      }).catch(err => {
+        console.error("AI image processing failed", err);
+        document.getElementById('remover-loading-overlay').classList.add('hidden');
+        showToast(t('toastRemoverError'), 'error');
+      });
+    } else if (fileType === 'video') {
+      processVideo();
     }
   }
 
